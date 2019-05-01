@@ -1,0 +1,9 @@
+[package]
+name = "INSYNC"
+version = "0.1.0"
+authors = ["Imani Dap <imani.dap@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+three = "0.4.0"
+recs = "2.0.1"
