@@ -707,6 +707,7 @@ dependencies = [
 name = "insync"
 version = "0.1.0"
 dependencies = [
+ "mint 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "recs 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "three 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
