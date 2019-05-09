@@ -1,5 +1,5 @@
 [package]
-name = "INSYNC"
+name = "insync"
 version = "0.1.0"
 authors = ["Imani Dap <imani.dap@gmail.com>"]
 edition = "2018"
