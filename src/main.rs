@@ -69,7 +69,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
         let _ = store.set(cube, Position{ 
             x: random.gen_range(0.0, 3.0), 
             y: random.gen_range(0.0, 3.0), 
-            z: random.gen_range(0.0, 3.0) });
+            z: random.gen_range(-6.0, 0.0) });
 
         let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
         let material = three::material::Basic {
