@@ -4,6 +4,12 @@ use recs::{Ecs, EntityId, component_filter};
 use rand::Rng;
 use mint::Point3;
 
+#[derive(Clone, PartialEq, Debug)]
+enum GameObjectType {
+    Player,
+    Enemy,
+}
+
 #[derive(Clone, PartialEq, Debug, Copy)]
 struct Position {
     x: f32,
@@ -14,7 +20,7 @@ struct Position {
 #[derive(Clone, PartialEq, Debug)]
 struct GameObject {
     mesh: three::Mesh,
-    is_player: bool,
+    object_type: GameObjectType,
     vertices: Vec<Point3<f32>>
 }
 
@@ -62,18 +68,15 @@ fn collision_system(store: &mut recs::Ecs) {
         let z_min = z_values.clone().fold(0.0, find_min); 
         let z_max = z_values.clone().fold(0.0, find_max);
 
-        if !gameobject.is_player {
-            enemies.push((entity, x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z));
-        }
-
-        if gameobject.is_player {
-            player = (x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z);
+        match gameobject.object_type {
+            GameObjectType::Enemy => enemies.push((entity, x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z)),
+            GameObjectType::Player => player = (x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z)
         }
     }
 
     for enemy in enemies {
         let (player_x_min, player_x_max, player_y_min, player_y_max, player_z_min, player_z_max) = player;
-        let (entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
+        let (_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
 
         if player_x_min < enemy_x_max && player_x_max > enemy_x_min {
             if player_y_min < enemy_y_max && player_y_max > enemy_y_min {
@@ -86,7 +89,43 @@ fn collision_system(store: &mut recs::Ecs) {
     }
 }
 
-fn positioning_system(window: &mut three::Window, store: &mut recs::Ecs) {
+fn position_enemy(entity: &EntityId, store: &mut recs::Ecs) {
+    let gameobject = store.get::<GameObject>(*entity).unwrap();
+    let old_position = store.get::<Position>(*entity).unwrap();
+    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z + 0.02 };
+    let _ = store.set::<Position>(*entity, new_position).unwrap();
+
+    gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
+}
+
+fn position_player(entity: &EntityId, store: &mut recs::Ecs, window: &mut three::Window) {
+    let gameobject = store.get::<GameObject>(*entity).unwrap();
+    let old_position = store.get::<Position>(*entity).unwrap();
+    let mut new_position = old_position.clone(); 
+
+    if window.input.hit(three::Key::W) {
+        new_position.y = new_position.y + 0.02; 
+    }
+
+    if window.input.hit(three::Key::S) {
+        new_position.y = new_position.y - 0.02; 
+    }
+
+    if window.input.hit(three::Key::A) {
+        new_position.x = new_position.x - 0.02; 
+    }
+        
+    if window.input.hit(three::Key::D) {
+        new_position.x = new_position.x + 0.02;  
+    }
+
+    //TODO: if space, create bullet 
+                
+    let _ = store.set::<Position>(*entity, new_position).unwrap();
+    gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
+}
+
+fn positioning_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
     let component_filter = component_filter!(Position, GameObject);
     let mut entities: Vec<EntityId> = Vec::new(); 
     
@@ -95,36 +134,9 @@ fn positioning_system(window: &mut three::Window, store: &mut recs::Ecs) {
     for entity in entities.iter() {
         let gameobject = store.get::<GameObject>(*entity).unwrap();
 
-        if !gameobject.is_player {
-            let old_position = store.get::<Position>(*entity).unwrap();
-            let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z + 0.02 };
-            let _ = store.set::<Position>(*entity, new_position).unwrap();
-
-            gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
-        }
-
-        if gameobject.is_player {
-            let old_position = store.get::<Position>(*entity).unwrap();
-            let mut new_position = old_position.clone(); 
-
-            if window.input.hit(three::Key::W) {
-                new_position.y = new_position.y + 0.02; 
-            }
-
-            if window.input.hit(three::Key::S) {
-                new_position.y = new_position.y - 0.02; 
-            }
-
-            if window.input.hit(three::Key::A) {
-                new_position.x = new_position.x - 0.02; 
-            }
-
-            if window.input.hit(three::Key::D) {
-                new_position.x = new_position.x + 0.02; 
-            }
-                
-            let _ = store.set::<Position>(*entity, new_position).unwrap();
-            gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
+        match gameobject.object_type {
+            GameObjectType::Enemy => position_enemy(entity, &mut store), 
+            GameObjectType::Player => position_player(entity, &mut store, &mut window), 
         }
     }
 }
@@ -151,7 +163,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
 
         let mesh = window.factory.mesh(geometry, material); 
         window.scene.add(&mesh);
-        let _ = store.set(cube, GameObject{mesh: mesh, is_player: false, vertices: vertices});
+        let _ = store.set(cube, GameObject{mesh: mesh, object_type: GameObjectType::Enemy, vertices: vertices});
     }
 }
 
@@ -170,7 +182,7 @@ fn player_factory(window: &mut three::Window, store: &mut Ecs) {
     let mesh = window.factory.mesh(geometry, material); 
     window.scene.add(&mesh);
 
-    let _ = store.set(player, GameObject{mesh: mesh, is_player: true, vertices: vertices});
+    let _ = store.set(player, GameObject{mesh: mesh, object_type: GameObjectType::Player, vertices: vertices});
 }
 
 fn main() {
