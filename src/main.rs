@@ -25,6 +25,11 @@ struct GameObject {
     vertices: Vec<Point3<f32>>
 }
 
+#[derive(Clone, PartialEq, Debug)]
+struct Score {
+    total: i32,
+    ui: three::Text
+}
 
 fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
     //NOTE: usage of skeletons would be nice since meshes can be used and the game can move away from basic shapes
@@ -99,6 +104,12 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
                     if bullet_z_min < enemy_z_max && bullet_z_max > enemy_z_min {
                         remove_entity(*enemy_entity, &mut store, &mut window);
                         remove_entity(*bullet_entity, &mut store, &mut window);
+
+                        let mut scores: Vec<EntityId> = Vec::new(); 
+                        store.collect_with(&component_filter!(Score), &mut scores);
+                        let mut score = store.get::<Score>(scores[0]).unwrap();
+                        score.total = score.total + 100; 
+                        let _ = store.set::<Score>(scores[0], score); 
                     }
                 }
             }
@@ -191,6 +202,29 @@ fn input_system(mut window: &mut three::Window, mut store: &mut Ecs) {
     }
 }
 
+fn score_system(store: &mut recs::Ecs) {
+    //NOTE: this method is pretty ineffecient, I should probably try something with a history in a gamestate
+    let mut scores: Vec<EntityId> = Vec::new(); 
+    store.collect_with(&component_filter!(Score), &mut scores);
+    let mut score = store.get::<Score>(scores[0]).unwrap();
+    
+    let score_prefix: &str = "score: ";
+    let score_string: &str = &score.total.to_string();
+
+   score.ui.set_text(format!("{}{}", score_prefix, score_string)); 
+}
+
+fn score_factory(window: &mut three::Window) -> Score {
+    let font = &window.factory.load_font_karla();
+    let mut score_ui = window.factory.ui_text(font, "score: 0"); 
+    score_ui.set_font_size(92.0);
+    score_ui.set_pos([window.size().x, 0.0]);
+    score_ui.set_layout(three::Layout::SingleLine(three::Align::Right));
+    
+    window.scene.add(&score_ui); 
+    return Score{total: 0, ui: score_ui}
+}
+
 fn bullet_factory(window: &mut three::Window, store: &mut Ecs, position: Position) {
     let bullet = store.create_entity();
     let _ = store.set(bullet, Position{ x: position.x, y: position.y, z: position.z});
@@ -219,7 +253,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
         let _ = store.set(cube, Position{ 
             x: random.gen_range(0.0, 3.0), 
             y: random.gen_range(0.0, 3.0), 
-            z: random.gen_range(-6.0, 0.0) });
+            z: random.gen_range(-12.0, 0.0) });
 
         let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
         let material = three::material::Basic {
@@ -235,9 +269,10 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
     }
 }
 
-fn player_factory(window: &mut three::Window, store: &mut Ecs) {
+fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
     let player = store.create_entity();
     let _ = store.set(player, Position{ x: 0.0, y: 0.0, z: 0.0});
+    let _ = store.set(player, score_factory(&mut window));
 
     let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
     let material = three::material::Basic {
@@ -264,11 +299,13 @@ fn main() {
     let mut store = Ecs::new();
     meteor_factory(&mut window, &mut store, 2);
     player_factory(&mut window, &mut store);
-    
+    score_factory(&mut window);
+
     while window.update() {
         input_system(&mut window, &mut store);
         collision_system(&mut window, &mut store); 
         positioning_system(&mut store);
+        score_system(&mut store); 
         window.render(&camera);
     }
 }
