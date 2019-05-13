@@ -8,6 +8,7 @@ use mint::Point3;
 enum GameObjectType {
     Player,
     Enemy,
+    Bullet
 }
 
 #[derive(Clone, PartialEq, Debug, Copy)]
@@ -25,7 +26,7 @@ struct GameObject {
 }
 
 
-fn collision_system(store: &mut recs::Ecs) {
+fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
     //NOTE: usage of skeletons would be nice since meshes can be used and the game can move away from basic shapes
     //NOTE: in the next iteration dimentions should at least be precalculated from the vertices in the base shape. 
 
@@ -33,6 +34,7 @@ fn collision_system(store: &mut recs::Ecs) {
     let mut entities: Vec<EntityId> = Vec::new(); 
     // (EntityId, minX, maxX, minY, maxY, minZ, maxZ)
     let mut enemies: Vec<(&EntityId, f32, f32, f32, f32, f32, f32)> = Vec::new(); 
+    let mut bullets: Vec<(&EntityId, f32, f32, f32, f32, f32, f32)> = Vec::new(); 
     let mut player = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     
     store.collect_with(&component_filter, &mut entities);
@@ -70,23 +72,53 @@ fn collision_system(store: &mut recs::Ecs) {
 
         match gameobject.object_type {
             GameObjectType::Enemy => enemies.push((entity, x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z)),
-            GameObjectType::Player => player = (x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z)
+            GameObjectType::Player => player = (x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z),
+            GameObjectType::Bullet => bullets.push((entity, x_min + position.x, x_max + position.x, y_min + position.y, y_max + position.y, z_min + position.z, z_max + position.z)),
         }
     }
 
     for enemy in enemies {
         let (player_x_min, player_x_max, player_y_min, player_y_max, player_z_min, player_z_max) = player;
-        let (_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
+        let (enemy_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
 
+        //check collision with player
         if player_x_min < enemy_x_max && player_x_max > enemy_x_min {
             if player_y_min < enemy_y_max && player_y_max > enemy_y_min {
                 if player_z_min < enemy_z_max && player_z_max > enemy_z_min {
                     println!("hit!");
-                    //TODO: remove entity & mesh from world
+                    //TODO: remove player from world 
+                }
+            }
+        }
+
+        //check collision with bullets
+        for bullet in &bullets {
+            let (bullet_entity, bullet_x_min, bullet_x_max, bullet_y_min, bullet_y_max, bullet_z_min, bullet_z_max) = *bullet;
+            if bullet_x_min < enemy_x_max && bullet_x_max > enemy_x_min {
+                if bullet_y_min < enemy_y_max && bullet_y_max > enemy_y_min {
+                    if bullet_z_min < enemy_z_max && bullet_z_max > enemy_z_min {
+                        remove_entity(*enemy_entity, &mut store, &mut window);
+                        remove_entity(*bullet_entity, &mut store, &mut window);
+                    }
                 }
             }
         }
     }
+}
+
+fn remove_entity(entity: EntityId, store: &mut recs::Ecs, window: &mut three::Window) {
+    let removable = store.get::<GameObject>(entity).unwrap();
+    window.scene.remove(removable.mesh); 
+    let _ = store.destroy_entity(entity);
+}
+
+fn position_bullet(entity: &EntityId, store: &mut recs::Ecs) {
+    let gameobject = store.get::<GameObject>(*entity).unwrap();
+    let old_position = store.get::<Position>(*entity).unwrap();
+    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z - 0.02 };
+    let _ = store.set::<Position>(*entity, new_position).unwrap();
+
+    gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
 }
 
 fn position_enemy(entity: &EntityId, store: &mut recs::Ecs) {
@@ -119,8 +151,6 @@ fn position_player(entity: &EntityId, store: &mut recs::Ecs, window: &mut three:
         new_position.x = new_position.x + 0.02;  
     }
 
-    //TODO: if space, create bullet 
-                
     let _ = store.set::<Position>(*entity, new_position).unwrap();
     gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
 }
@@ -137,8 +167,42 @@ fn positioning_system(mut window: &mut three::Window, mut store: &mut recs::Ecs)
         match gameobject.object_type {
             GameObjectType::Enemy => position_enemy(entity, &mut store), 
             GameObjectType::Player => position_player(entity, &mut store, &mut window), 
+            GameObjectType::Bullet => position_bullet(entity, &mut store),
         }
     }
+}
+
+fn shooting_system(mut window: &mut three::Window, mut store: &mut Ecs) {
+    if window.input.hit(three::Key::Space) {
+        let component_filter = component_filter!(Position, GameObject);
+        let mut entities: Vec<EntityId> = Vec::new(); 
+        store.collect_with(&component_filter, &mut entities);
+        for enitity in entities {
+            let gameobject = store.get::<GameObject>(enitity).unwrap(); 
+            if gameobject.object_type == GameObjectType::Player {
+                let position = store.get::<Position>(enitity).unwrap();
+                bullet_factory(&mut window, &mut store, position);          
+            }
+        }
+    }; 
+}
+
+fn bullet_factory(window: &mut three::Window, store: &mut Ecs, position: Position) {
+    let bullet = store.create_entity();
+    let _ = store.set(bullet, Position{ x: position.x, y: position.y, z: position.z});
+
+    let geometry = three::Geometry::cuboid(0.1, 0.1, 0.5); 
+    let material = three::material::Basic {
+        color: 0xFFFFFF,
+        .. Default::default()
+    };
+
+    let vertices = geometry.base.vertices.clone();
+
+    let mesh = window.factory.mesh(geometry, material); 
+    window.scene.add(&mesh);
+
+    let _ = store.set(bullet, GameObject{mesh: mesh, object_type: GameObjectType::Bullet, vertices: vertices});
 }
 
 fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32) {
@@ -198,7 +262,8 @@ fn main() {
     player_factory(&mut window, &mut store);
     
     while window.update() {
-        collision_system(&mut store); 
+        shooting_system(&mut window, &mut store);
+        collision_system(&mut window, &mut store); 
         positioning_system(&mut window, &mut store);
         window.render(&camera);
     }
