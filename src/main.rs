@@ -299,7 +299,6 @@ fn main() {
     let mut store = Ecs::new();
     meteor_factory(&mut window, &mut store, 2);
     player_factory(&mut window, &mut store);
-    score_factory(&mut window);
 
     while window.update() {
         input_system(&mut window, &mut store);
