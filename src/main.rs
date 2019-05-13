@@ -31,6 +31,12 @@ struct Score {
     ui: three::Text
 }
 
+#[derive(Clone, PartialEq, Debug)]
+struct GameState {
+    window_size: mint::Vector2<f32>
+}
+
+
 fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
     //NOTE: usage of skeletons would be nice since meshes can be used and the game can move away from basic shapes
     //NOTE: in the next iteration dimentions should at least be precalculated from the vertices in the base shape. 
@@ -214,11 +220,16 @@ fn score_system(store: &mut recs::Ecs) {
    score.ui.set_text(format!("{}{}", score_prefix, score_string)); 
 }
 
-fn score_factory(window: &mut three::Window) -> Score {
-    let font = &window.factory.load_font_karla();
-    let mut score_ui = window.factory.ui_text(font, "score: 0"); 
+fn score_factory(window: &mut three::Window, store: &mut recs::Ecs) -> Score {
+    let mut gamestates: Vec<EntityId> = Vec::new();
+    store.collect_with(&component_filter!(GameState), &mut gamestates);
+
+    let gamestate = store.get::<GameState>(gamestates[0]).unwrap(); 
+
+    let font = window.factory.load_font_karla();
+    let mut score_ui = window.factory.ui_text(&font, "score: 0"); 
     score_ui.set_font_size(92.0);
-    score_ui.set_pos([window.size().x, 0.0]);
+    score_ui.set_pos([gamestate.window_size.x, 0.0]);
     score_ui.set_layout(three::Layout::SingleLine(three::Align::Right));
     
     window.scene.add(&score_ui); 
@@ -269,10 +280,11 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
     }
 }
 
-fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
+fn player_factory(mut window: &mut three::Window, mut store: &mut Ecs) {
     let player = store.create_entity();
     let _ = store.set(player, Position{ x: 0.0, y: 0.0, z: 0.0});
-    let _ = store.set(player, score_factory(&mut window));
+    let score = score_factory(&mut window, &mut store);
+    let _ = store.set(player, score);
 
     let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
     let material = three::material::Basic {
@@ -297,6 +309,8 @@ fn main() {
     camera.set_position([0.0, 0.0, 10.0]);
 
     let mut store = Ecs::new();
+    let gamestate = store.create_entity();
+    let _ = store.set(gamestate, GameState{ window_size: window.size()});
     meteor_factory(&mut window, &mut store, 2);
     player_factory(&mut window, &mut store);
 
