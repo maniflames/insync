@@ -124,6 +124,7 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
 }
 
 fn remove_entity(entity: EntityId, store: &mut recs::Ecs, window: &mut three::Window) {
+    //TODO: just return when the entity can't be found
     let removable = store.get::<GameObject>(entity).unwrap();
     window.scene.remove(removable.mesh); 
     let _ = store.destroy_entity(entity);
