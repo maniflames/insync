@@ -130,32 +130,14 @@ fn position_enemy(entity: &EntityId, store: &mut recs::Ecs) {
     gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
 }
 
-fn position_player(entity: &EntityId, store: &mut recs::Ecs, window: &mut three::Window) {
+fn position_player(entity: &EntityId, store: &mut recs::Ecs) {
     let gameobject = store.get::<GameObject>(*entity).unwrap();
-    let old_position = store.get::<Position>(*entity).unwrap();
-    let mut new_position = old_position.clone(); 
+    let position = store.get::<Position>(*entity).unwrap();
 
-    if window.input.hit(three::Key::W) {
-        new_position.y = new_position.y + 0.02; 
-    }
-
-    if window.input.hit(three::Key::S) {
-        new_position.y = new_position.y - 0.02; 
-    }
-
-    if window.input.hit(three::Key::A) {
-        new_position.x = new_position.x - 0.02; 
-    }
-        
-    if window.input.hit(three::Key::D) {
-        new_position.x = new_position.x + 0.02;  
-    }
-
-    let _ = store.set::<Position>(*entity, new_position).unwrap();
-    gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
+    gameobject.mesh.set_position([position.x, position.y, position.z]);
 }
 
-fn positioning_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
+fn positioning_system(mut store: &mut recs::Ecs) {
     let component_filter = component_filter!(Position, GameObject);
     let mut entities: Vec<EntityId> = Vec::new(); 
     
@@ -166,25 +148,47 @@ fn positioning_system(mut window: &mut three::Window, mut store: &mut recs::Ecs)
 
         match gameobject.object_type {
             GameObjectType::Enemy => position_enemy(entity, &mut store), 
-            GameObjectType::Player => position_player(entity, &mut store, &mut window), 
+            GameObjectType::Player => position_player(entity, &mut store), 
             GameObjectType::Bullet => position_bullet(entity, &mut store),
         }
     }
 }
 
-fn shooting_system(mut window: &mut three::Window, mut store: &mut Ecs) {
-    if window.input.hit(three::Key::Space) {
-        let component_filter = component_filter!(Position, GameObject);
-        let mut entities: Vec<EntityId> = Vec::new(); 
-        store.collect_with(&component_filter, &mut entities);
-        for enitity in entities {
-            let gameobject = store.get::<GameObject>(enitity).unwrap(); 
-            if gameobject.object_type == GameObjectType::Player {
-                let position = store.get::<Position>(enitity).unwrap();
-                bullet_factory(&mut window, &mut store, position);          
+fn input_system(mut window: &mut three::Window, mut store: &mut Ecs) {
+    let component_filter = component_filter!(Position, GameObject);
+    let mut entities: Vec<EntityId> = Vec::new(); 
+    store.collect_with(&component_filter, &mut entities);
+        
+    for entity in entities {
+        let gameobject = store.get::<GameObject>(entity).unwrap(); 
+        if gameobject.object_type == GameObjectType::Player {
+            let position = store.get::<Position>(entity).unwrap();
+
+            if window.input.hit(three::Key::Space) {
+                bullet_factory(&mut window, &mut store, position); 
+            }; 
+
+            let mut new_position = position.clone(); 
+
+            if window.input.hit(three::Key::W) {
+                new_position.y = new_position.y + 0.02; 
             }
+
+            if window.input.hit(three::Key::S) {
+                new_position.y = new_position.y - 0.02; 
+            }
+
+            if window.input.hit(three::Key::A) {
+                new_position.x = new_position.x - 0.02; 
+            }
+        
+            if window.input.hit(three::Key::D) {
+                new_position.x = new_position.x + 0.02;  
+            }
+
+            let _ = store.set::<Position>(entity, new_position).unwrap();       
         }
-    }; 
+    }
 }
 
 fn bullet_factory(window: &mut three::Window, store: &mut Ecs, position: Position) {
@@ -262,9 +266,9 @@ fn main() {
     player_factory(&mut window, &mut store);
     
     while window.update() {
-        shooting_system(&mut window, &mut store);
+        input_system(&mut window, &mut store);
         collision_system(&mut window, &mut store); 
-        positioning_system(&mut window, &mut store);
+        positioning_system(&mut store);
         window.render(&camera);
     }
 }
