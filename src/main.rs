@@ -88,6 +88,7 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
         }
     }
 
+    //FIX: removal isn't always correct, this is probably because enemies is mutable and I'm looping frowards not backwards
     for enemy in enemies {
         let (player_x_min, player_x_max, player_y_min, player_y_max, player_z_min, player_z_max) = player;
         let (enemy_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
@@ -96,8 +97,13 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
         if player_x_min < enemy_x_max && player_x_max > enemy_x_min {
             if player_y_min < enemy_y_max && player_y_max > enemy_y_min {
                 if player_z_min < enemy_z_max && player_z_max > enemy_z_min {
-                    println!("hit!");
-                    //TODO: remove player from world 
+                    remove_entity(*enemy_entity, &mut store, &mut window);
+
+                    let mut enitites: Vec<EntityId> = Vec::new(); 
+                    store.collect_with(&component_filter!(Health), &mut enitites);
+                    let mut health = store.get::<Health>(enitites[0]).unwrap();
+                    health.total = health.total - 1; 
+                    let _ = store.set(enitites[0], health);
                 }
             }
         }
@@ -235,8 +241,30 @@ fn score_factory(window: &mut three::Window, font: &three::Font) -> Score {
     return Score{total: 0, ui: score_ui}
 }
 
+fn gamestate_system(window: &mut three::Window, store: &mut recs::Ecs) {
+    let mut enitites: Vec<EntityId> = Vec::new(); 
+    store.collect_with(&component_filter!(Health), &mut enitites);
+    let health = store.get::<Health>(enitites[0]).unwrap();
+
+   //if health is 0 destroy player 
+   if health.total == 0 {
+       remove_entity(enitites[0], store, window);
+   }
+}
+
+fn health_system(store: &mut recs::Ecs) {
+    let mut enitites: Vec<EntityId> = Vec::new(); 
+    store.collect_with(&component_filter!(Health), &mut enitites);
+    let mut health = store.get::<Health>(enitites[0]).unwrap();
+    
+    let health_prefix: &str = "lives: ";
+    let health_string: &str = &health.total.to_string();
+
+   health.ui.set_text(format!("{}{}", health_prefix, health_string));
+}
+
 fn health_factory(window: &mut three::Window, font: &three::Font) -> Health {
-    let mut health_ui = window.factory.ui_text(&font, "Lives: 3"); 
+    let mut health_ui = window.factory.ui_text(&font, "lives: 3"); 
     health_ui.set_font_size(92.0);
     
     window.scene.add(&health_ui); 
@@ -325,9 +353,11 @@ fn main() {
 
     while window.update() {
         input_system(&mut window, &mut store);
-        collision_system(&mut window, &mut store); 
         positioning_system(&mut store);
+        collision_system(&mut window, &mut store); 
         score_system(&mut store); 
+        health_system(&mut store);
+        gamestate_system(&mut window, &mut store);
         window.render(&camera);
     }
 }
