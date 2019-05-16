@@ -88,10 +88,10 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
         }
     }
 
-    //FIX: removal isn't always correct, this is probably because enemies is mutable and I'm looping frowards not backwards
-    for enemy in enemies {
+    for enemy in enemies.iter().rev() {
+
         let (player_x_min, player_x_max, player_y_min, player_y_max, player_z_min, player_z_max) = player;
-        let (enemy_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = enemy;
+        let (enemy_entity, enemy_x_min, enemy_x_max, enemy_y_min, enemy_y_max, enemy_z_min, enemy_z_max) = *enemy;
 
         //check collision with player
         if player_x_min < enemy_x_max && player_x_max > enemy_x_min {
@@ -109,7 +109,7 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
         }
 
         //check collision with bullets
-        for bullet in &bullets {
+        for bullet in bullets.iter().rev(){
             let (bullet_entity, bullet_x_min, bullet_x_max, bullet_y_min, bullet_y_max, bullet_z_min, bullet_z_max) = *bullet;
             if bullet_x_min < enemy_x_max && bullet_x_max > enemy_x_min {
                 if bullet_y_min < enemy_y_max && bullet_y_max > enemy_y_min {
@@ -297,9 +297,9 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
         let cube = store.create_entity();
         
         let _ = store.set(cube, Position{ 
-            x: random.gen_range(0.0, 3.0), 
-            y: random.gen_range(0.0, 3.0), 
-            z: random.gen_range(-12.0, 0.0) });
+            x: random.gen_range(-3.0, 3.0), 
+            y: random.gen_range(-3.0, 3.0), 
+            z: random.gen_range(-16.0, -12.0)});
 
         let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
         let material = three::material::Basic {
@@ -344,12 +344,12 @@ fn main() {
     window_builder.fullscreen(true); 
     let mut window = window_builder.build();
 
-    let camera = window.factory.perspective_camera(75.0, 1.0 .. 50.0);
+    let camera = window.factory.perspective_camera(75.0, 1.0 .. 20.0);
     camera.set_position([0.0, 0.0, 10.0]);
 
     let mut store = Ecs::new();
-    meteor_factory(&mut window, &mut store, 2);
     player_factory(&mut window, &mut store);
+    meteor_factory(&mut window, &mut store, 10);
 
     while window.update() {
         input_system(&mut window, &mut store);
