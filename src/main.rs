@@ -192,7 +192,8 @@ fn input_system(mut window: &mut three::Window, mut store: &mut Ecs) {
         if gameobject.object_type == GameObjectType::Player {
             let position = store.get::<Position>(entity).unwrap();
 
-            if window.input.hit(three::Key::Space) {
+            let space_button = three::Button::from(three::controls::Button::Key(three::controls::Key::Space));
+            if window.input.hit(three::Key::Space) && window.input.hit_count(space_button) == 1 {
                 bullet_factory(&mut window, &mut store, position); 
             }; 
 
