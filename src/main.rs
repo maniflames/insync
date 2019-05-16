@@ -124,10 +124,14 @@ fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
 }
 
 fn remove_entity(entity: EntityId, store: &mut recs::Ecs, window: &mut three::Window) {
-    //TODO: just return when the entity can't be found
-    let removable = store.get::<GameObject>(entity).unwrap();
-    window.scene.remove(removable.mesh); 
-    let _ = store.destroy_entity(entity);
+    let result = store.get::<GameObject>(entity);
+    match result {
+        Ok(removable) => {
+                window.scene.remove(removable.mesh);
+                let _ = store.destroy_entity(entity);
+            },
+        Err(err) => println!("[remove_entity]: tried to remove {:?} but couldn't find it.", err), 
+    }
 }
 
 fn position_bullet(entity: &EntityId, store: &mut recs::Ecs) {
