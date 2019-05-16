@@ -283,7 +283,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
     }
 }
 
-fn player_factory(mut window: &mut three::Window, mut store: &mut Ecs) {
+fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
     let player = store.create_entity();
     let _ = store.set(player, Position{ x: 0.0, y: 0.0, z: 0.0});
 
