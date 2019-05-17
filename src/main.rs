@@ -22,7 +22,8 @@ struct Position {
 struct GameObject {
     mesh: three::Mesh,
     object_type: GameObjectType,
-    vertices: Vec<Point3<f32>>
+    vertices: Vec<Point3<f32>>,
+    velocity: f32
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -143,7 +144,7 @@ fn remove_entity(entity: EntityId, store: &mut recs::Ecs, window: &mut three::Wi
 fn position_bullet(entity: &EntityId, store: &mut recs::Ecs) {
     let gameobject = store.get::<GameObject>(*entity).unwrap();
     let old_position = store.get::<Position>(*entity).unwrap();
-    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z - 0.02 };
+    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z - gameobject.velocity};
     let _ = store.set::<Position>(*entity, new_position).unwrap();
 
     gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
@@ -152,7 +153,7 @@ fn position_bullet(entity: &EntityId, store: &mut recs::Ecs) {
 fn position_enemy(entity: &EntityId, store: &mut recs::Ecs) {
     let gameobject = store.get::<GameObject>(*entity).unwrap();
     let old_position = store.get::<Position>(*entity).unwrap();
-    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z + 0.02 };
+    let new_position = Position{ x: old_position.x, y: old_position.y, z: old_position.z + gameobject.velocity };
     let _ = store.set::<Position>(*entity, new_position).unwrap();
 
     gameobject.mesh.set_position([new_position.x, new_position.y, new_position.z]);
@@ -200,19 +201,19 @@ fn input_system(mut window: &mut three::Window, mut store: &mut Ecs) {
             let mut new_position = position.clone(); 
 
             if window.input.hit(three::Key::W) {
-                new_position.y = new_position.y + 0.02; 
+                new_position.y = new_position.y + gameobject.velocity; 
             }
 
             if window.input.hit(three::Key::S) {
-                new_position.y = new_position.y - 0.02; 
+                new_position.y = new_position.y - gameobject.velocity; 
             }
 
             if window.input.hit(three::Key::A) {
-                new_position.x = new_position.x - 0.02; 
+                new_position.x = new_position.x - gameobject.velocity; 
             }
         
             if window.input.hit(three::Key::D) {
-                new_position.x = new_position.x + 0.02;  
+                new_position.x = new_position.x + gameobject.velocity;  
             }
 
             let _ = store.set::<Position>(entity, new_position).unwrap();       
@@ -287,7 +288,7 @@ fn bullet_factory(window: &mut three::Window, store: &mut Ecs, position: Positio
     let mesh = window.factory.mesh(geometry, material); 
     window.scene.add(&mesh);
 
-    let _ = store.set(bullet, GameObject{mesh: mesh, object_type: GameObjectType::Bullet, vertices: vertices});
+    let _ = store.set(bullet, GameObject{mesh: mesh, object_type: GameObjectType::Bullet, vertices: vertices, velocity: 0.25});
 }
 
 fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32) {
@@ -300,7 +301,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
         let _ = store.set(cube, Position{ 
             x: random.gen_range(-3.0, 3.0), 
             y: random.gen_range(-3.0, 3.0), 
-            z: random.gen_range(-16.0, -12.0)});
+            z: random.gen_range(-30.0, -25.0)});
 
         let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
         let material = three::material::Basic {
@@ -312,7 +313,7 @@ fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32)
 
         let mesh = window.factory.mesh(geometry, material); 
         window.scene.add(&mesh);
-        let _ = store.set(cube, GameObject{mesh: mesh, object_type: GameObjectType::Enemy, vertices: vertices});
+        let _ = store.set(cube, GameObject{mesh: mesh, object_type: GameObjectType::Enemy, vertices: vertices, velocity: 0.07});
     }
 }
 
@@ -337,7 +338,7 @@ fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
     let mesh = window.factory.mesh(geometry, material); 
     window.scene.add(&mesh);
 
-    let _ = store.set(player, GameObject{mesh: mesh, object_type: GameObjectType::Player, vertices: vertices});
+    let _ = store.set(player, GameObject{mesh: mesh, object_type: GameObjectType::Player, vertices: vertices, velocity: 0.07});
 }
 
 fn main() {
@@ -345,7 +346,7 @@ fn main() {
     window_builder.fullscreen(true); 
     let mut window = window_builder.build();
 
-    let camera = window.factory.perspective_camera(75.0, 1.0 .. 20.0);
+    let camera = window.factory.perspective_camera(75.0, 1.0 .. 30.0);
     camera.set_position([0.0, 0.0, 10.0]);
 
     let mut store = Ecs::new();
