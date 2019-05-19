@@ -1,8 +1,10 @@
+use std::sync::mpsc::*;
 use three; 
 use three::Object;
 use recs::{Ecs, EntityId, component_filter};
 use rand::Rng;
 use mint::Point3;
+use clokwerk::{Scheduler, TimeUnits};
 
 #[derive(Clone, PartialEq, Debug)]
 enum GameObjectType {
@@ -36,6 +38,11 @@ struct Score {
 struct Health {
     total: i32,
     ui: three::Text
+}
+
+#[derive(Clone, PartialEq, Debug)]
+struct GameState {
+    pending_enemies: Vec<Position>
 }
 
 fn collision_system(mut window: &mut three::Window, mut store: &mut recs::Ecs) {
@@ -162,7 +169,6 @@ fn position_enemy(entity: &EntityId, store: &mut recs::Ecs) {
 fn position_player(entity: &EntityId, store: &mut recs::Ecs) {
     let gameobject = store.get::<GameObject>(*entity).unwrap();
     let position = store.get::<Position>(*entity).unwrap();
-
     gameobject.mesh.set_position([position.x, position.y, position.z]);
 }
 
@@ -291,30 +297,60 @@ fn bullet_factory(window: &mut three::Window, store: &mut Ecs, position: Positio
     let _ = store.set(bullet, GameObject{mesh: mesh, object_type: GameObjectType::Bullet, vertices: vertices, velocity: 0.25});
 }
 
-fn meteor_factory(window: &mut three::Window, store: &mut Ecs, num_meteors: i32) {
-    let range = 0..num_meteors;
+fn meteor_factory(window: &mut three::Window, store: &mut Ecs, position: Position) {
+    let cube = store.create_entity();
+    let _ = store.set(cube, position);
+
+    let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
+    let material = three::material::Basic {
+        color: 0xFF0000,
+        .. Default::default()
+    };
+
+    let vertices = geometry.base.vertices.clone();
+
+    let mesh = window.factory.mesh(geometry, material); 
+    mesh.set_position([position.x, position.y, position.z]);
+    window.scene.add(&mesh);
+    let _ = store.set(cube, GameObject{mesh: mesh, object_type: GameObjectType::Enemy, vertices: vertices, velocity: 0.07});
+}
+
+fn polar_to_cartesian(radius: f32, angle: f32) -> [f32; 2] {
+    //angles are converted from degrees to radians because rust calculates sine functions with radians 
+    let x = radius * angle.to_radians().cos();
+    let y = radius * angle.to_radians().sin();
+    return [x, y];
+}
+
+fn enemy_scheduler_system() -> Vec<Position> { 
     let mut random = rand::thread_rng();
+    let num_meteors: i32 = random.gen_range(5, 15);
+    let radius: f32 = random.gen_range(2.0, 5.0);
+    let d_angle = 360.0 / (num_meteors as f32); 
+    let z = random.gen_range(-30.0, -25.0);
 
-    for (_index, _meteor ) in range.enumerate() {
-        let cube = store.create_entity();
-        
-        let _ = store.set(cube, Position{ 
-            x: random.gen_range(-3.0, 3.0), 
-            y: random.gen_range(-3.0, 3.0), 
-            z: random.gen_range(-30.0, -25.0)});
-
-        let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
-        let material = three::material::Basic {
-            color: 0xFF0000,
-            .. Default::default()
-        };
-
-        let vertices = geometry.base.vertices.clone();
-
-        let mesh = window.factory.mesh(geometry, material); 
-        window.scene.add(&mesh);
-        let _ = store.set(cube, GameObject{mesh: mesh, object_type: GameObjectType::Enemy, vertices: vertices, velocity: 0.07});
+    let mut pending_enemies: Vec<Position> = Vec::new();
+    for index in 0..num_meteors {
+        let cartesian_coordinates = polar_to_cartesian(radius, d_angle * ((index as f32) + 1.0));
+ 
+        pending_enemies.push(Position{ 
+                x: cartesian_coordinates[0],
+                y: cartesian_coordinates[1],
+                z: z
+            });
     }
+
+    return pending_enemies;
+}
+
+fn enemy_spawn_system(window: &mut three::Window, store: &mut Ecs, pending_enemies: Vec<Position>) {
+    if pending_enemies.is_empty() {
+        return
+    }
+
+    for position in pending_enemies.iter().rev() {
+        meteor_factory(window, store, *position); 
+    }   
 }
 
 fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
@@ -351,7 +387,16 @@ fn main() {
 
     let mut store = Ecs::new();
     player_factory(&mut window, &mut store);
-    meteor_factory(&mut window, &mut store, 10);
+
+    let (sender, receiver): (SyncSender<Vec<Position>>, Receiver<Vec<Position>>) = sync_channel(1);
+    let mut enemy_scheduler = Scheduler::new();
+    
+    enemy_scheduler.every(5.seconds()).run(move || {
+            match sender.send(enemy_scheduler_system()) {
+                Ok(_) => (),
+                Err(err) => panic!("[enemy scheduler]: unable to schedule enemies. {:?}", err)
+            }
+        });
 
     while window.update() {
         input_system(&mut window, &mut store);
@@ -359,6 +404,11 @@ fn main() {
         collision_system(&mut window, &mut store); 
         score_system(&mut store); 
         health_system(&mut store);
+        enemy_scheduler.run_pending();
+        match receiver.try_recv() {
+            Ok(pending_enemies) => enemy_spawn_system(&mut window, &mut store, pending_enemies),
+            Err(_) => ()
+        }
         gamestate_system(&mut window, &mut store);
         window.render(&camera);
     }
