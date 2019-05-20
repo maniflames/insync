@@ -377,6 +377,30 @@ fn player_factory(mut window: &mut three::Window, store: &mut Ecs) {
     let _ = store.set(player, GameObject{mesh: mesh, object_type: GameObjectType::Player, vertices: vertices, velocity: 0.07});
 }
 
+fn garbage_collection_system(mut window: &mut three::Window, mut store: &mut Ecs) {
+    let mut entities: Vec<EntityId> = Vec::new();
+    store.collect_with(&component_filter!(GameObject, Position), &mut entities);
+    for entity in entities.iter().rev() {
+        let gameobject = store.get::<GameObject>(*entity).unwrap();
+        let position = store.get::<Position>(*entity).unwrap();
+        match gameobject.object_type {
+            GameObjectType::Enemy => {
+                //if traveled beyond camera
+                if position.z > 12.0 {
+                    remove_entity(*entity, &mut store, &mut window);
+                }
+            },
+            GameObjectType::Bullet => {
+                //if traveled beyond the edge of the world
+                if position.z < -35.0 {
+                    remove_entity(*entity, &mut store, &mut window);
+                }
+            },
+            GameObjectType::Player => (), //?? cleanup player in here in stead of in gamestate??
+        }
+    }
+}
+
 fn main() {
     let mut window_builder = three::Window::builder("INSYNC");
     window_builder.fullscreen(true); 
@@ -410,6 +434,7 @@ fn main() {
             Err(_) => ()
         }
         gamestate_system(&mut window, &mut store);
+        garbage_collection_system(&mut window, &mut store);
         window.render(&camera);
     }
 }
