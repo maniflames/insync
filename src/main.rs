@@ -69,7 +69,31 @@ fn main() {
             }
         });
 
+    let pa = portaudio::PortAudio::new().expect("Unable to open PortAudio"); 
+    let default_mic_index = pa.default_input_device().expect("Unable to get default device"); 
+    let mic = pa.device_info(default_mic_index).expect("Unable to get mic info"); 
+
+    let input_stream_params = portaudio::StreamParameters::<f32>::new(default_mic_index, 1, true, mic.default_low_input_latency);
+    let input_stream_settings = portaudio::InputStreamSettings::new(input_stream_params, mic.default_sample_rate, 256);
+
+    let (mic_sender, mic_receiver): (Sender<&[f32]>, Receiver<&[f32]>) = channel();
+
+    let mut stream = pa.open_non_blocking_stream(input_stream_settings, move |portaudio::InputStreamCallbackArgs {buffer, ..}| {
+        //samples vs signal?? for namin variables sake what am I sending? (seems like a sample = frame of audio = signal)
+        match mic_sender.send(buffer) {
+            Ok(_) => portaudio::Continue,
+            Err(_) => portaudio::Complete
+        }
+    }).expect("Unable to open stream");
+
+    println!("Starting audio stream...");
+    stream.start().expect("Unable to start stream"); 
+
     while window.update() {
+        match mic_receiver.try_recv() {
+            Ok(samples) => println!("{:?}", samples),
+            Err(_) => ()
+        }
         system::input::run(&mut window, &mut store);
         system::position::run(&mut store);
         system::collision::run(&mut window, &mut store); 
