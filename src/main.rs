@@ -4,6 +4,7 @@ use three::Object;
 use recs::{Ecs};
 use mint::Point3;
 use clokwerk::{Scheduler, TimeUnits};
+use std::collections::VecDeque;
 
 mod factory;
 mod util; 
@@ -44,8 +45,10 @@ pub struct Health {
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct GameState {
-    pending_enemies: Vec<Position>
+pub struct AudioHistory {
+    spectrum: VecDeque<Vec<f64>>,
+    novelty: VecDeque<f64>,
+    normalised_novelty: VecDeque<f64>,
 }
 
 fn main() {
@@ -86,12 +89,18 @@ fn main() {
         }
     }).expect("Unable to open stream");
 
+    let mut audio_history = AudioHistory {
+        spectrum: VecDeque::new(),
+        novelty: VecDeque::new(),
+        normalised_novelty: VecDeque::new(),
+    };
+
     println!("Starting audio stream...");
     stream.start().expect("Unable to start stream"); 
 
     while window.update() {
         match mic_receiver.try_recv() {
-            Ok(samples) => println!("{:?}", samples),
+            Ok(samples) => system::audio_analysis::calculate_novelty_curve(samples, &mut audio_history),
             Err(_) => ()
         }
         system::input::run(&mut window, &mut store);

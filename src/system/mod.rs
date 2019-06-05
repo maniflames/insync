@@ -1,3 +1,4 @@
+pub mod audio_analysis;
 pub mod collision;
 pub mod enemy_spawn;
 pub mod gamestate; 
