@@ -49,6 +49,7 @@ pub struct AudioHistory {
     spectrum: VecDeque<Vec<f64>>,
     novelty: VecDeque<f64>,
     normalised_novelty: VecDeque<f64>,
+    last_peak: f64
 }
 
 fn main() {
@@ -65,7 +66,7 @@ fn main() {
     let (sender, receiver): (SyncSender<Vec<Position>>, Receiver<Vec<Position>>) = sync_channel(1);
     let mut enemy_scheduler = Scheduler::new();
     
-    enemy_scheduler.every(5.seconds()).run(move || {
+    enemy_scheduler.every(2.seconds()).run(move || {
             match sender.send(system::enemy_spawn::schedule_callback()) {
                 Ok(_) => (),
                 Err(err) => panic!("[enemy scheduler]: unable to schedule enemies. {:?}", err)
@@ -93,6 +94,7 @@ fn main() {
         spectrum: VecDeque::new(),
         novelty: VecDeque::new(),
         normalised_novelty: VecDeque::new(),
+        last_peak: 0.0
     };
 
     println!("Starting audio stream...");
@@ -103,12 +105,18 @@ fn main() {
             Ok(samples) => system::audio_analysis::calculate_novelty_curve(samples, &mut audio_history),
             Err(_) => ()
         }
+
+        match system::audio_analysis::peak_detection(&mut audio_history) {
+            None => (),
+            Some(_peak) => () //system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver)
+        }
+
         system::input::run(&mut window, &mut store);
         system::position::run(&mut store);
         system::collision::run(&mut window, &mut store); 
+        system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver);
         system::score::run(&mut store); 
         system::health::run(&mut store);
-        system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver); 
         system::garbage_collection::run(&mut window, &mut store);
         window.render(&camera);
     }

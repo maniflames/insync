@@ -2,6 +2,7 @@ use std::sync::mpsc::*;
 use rand::Rng;
 use crate::*; 
 
+//replace this for only running on peak detection (match peak_deteciion) (match in match!!)
 pub fn run(window: &mut three::Window, store: &mut Ecs, enemy_scheduler: &mut clokwerk::Scheduler, receiver: &Receiver<Vec<Position>>) {
     enemy_scheduler.run_pending();
     match receiver.try_recv() {
@@ -10,12 +11,23 @@ pub fn run(window: &mut three::Window, store: &mut Ecs, enemy_scheduler: &mut cl
                 return
             }
 
-            for position in pending_enemies.iter().rev() {
-                factory::create_enemy(window, store, *position); 
+            for _position in pending_enemies.iter().rev() {
+                // factory::create_enemy(window, store, *position); 
+                create_single(window, store);
             }   
         },
         Err(_) => ()
     }
+}
+
+pub fn create_single(window: &mut three::Window, store: &mut Ecs) {
+    let mut random = rand::thread_rng();
+
+    factory::create_enemy(window, store, Position{
+        x: random.gen_range(-5.0, 5.0),
+        y: random.gen_range(-5.0, 5.0),
+        z: random.gen_range(-30.0, -25.0)
+    });
 }
 
 pub fn schedule_callback() -> Vec<Position> { 

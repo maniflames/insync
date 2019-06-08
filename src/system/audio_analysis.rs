@@ -58,3 +58,30 @@ pub fn calculate_novelty_curve(buffer: &[f32], history: &mut AudioHistory) {
     //remove unneeded history
     history.novelty.pop_back();
 }
+
+//return Err no peak and Ok deteced peak 
+pub fn peak_detection(audio_history: &mut AudioHistory) -> Option<f64> {
+    if audio_history.normalised_novelty.len() > 2 {
+
+        for (index, novelty_index) in audio_history.normalised_novelty.iter().enumerate() {
+
+            if index > 5 {
+                return None; 
+            }
+
+            if novelty_index > &50.0 {
+                let delta = novelty_index - audio_history.last_peak; 
+
+                if delta < 1.0 && delta > -1.0 {
+                    return None; 
+                }
+
+                audio_history.last_peak = *novelty_index;
+                return Some(*novelty_index);
+            }
+        }
+
+    }
+
+    return None;
+}
