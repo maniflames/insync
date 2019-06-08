@@ -67,14 +67,34 @@ pub fn create_player(mut window: &mut three::Window, store: &mut Ecs) {
     let health = create_health(&mut window, &font);
     let _ = store.set(player, health);
 
-    let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
-    let material = three::material::Basic {
+    let basic_pipeline = window.factory.basic_pipeline(
+            "./src/shaders",
+            "gradient",
+            three::custom::Primitive::TriangleList,
+            three::custom::state::Rasterizer::new_fill(),
+            three::custom::state::ColorMask::all(),
+            three::custom::state::Blend::new(three::custom::state::Equation::Add, three::custom::state::Factor::ZeroPlus(three::custom::state::BlendValue::SourceColor), three::custom::state::Factor::Zero),
+            three::custom::state::Depth{
+                fun: three::custom::state::Comparison::LessEqual, 
+                write: true
+            },
+            three::custom::state::Stencil::new(
+                three::custom::state::Comparison::Always,
+                1,
+                (three::custom::state::StencilOp::Keep, three::custom::state::StencilOp::Keep, three::custom::state::StencilOp::Keep)
+            )
+        ); 
+
+    
+    let material = three::material::basic::Custom{
         color: 0xFFFFFF,
-        .. Default::default()
+        map: None,
+        pipeline: basic_pipeline.expect("custom pipeline crashed")
     };
 
-    let vertices = geometry.base.vertices.clone();
+    let geometry = three::Geometry::cuboid(1.0, 1.0, 1.0); 
 
+    let vertices = geometry.base.vertices.clone();
     let mesh = window.factory.mesh(geometry, material); 
     window.scene.add(&mesh);
 
