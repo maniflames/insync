@@ -11,9 +11,9 @@ pub fn run(window: &mut three::Window, store: &mut Ecs, enemy_scheduler: &mut cl
                 return
             }
 
-            for _position in pending_enemies.iter().rev() {
-                // factory::create_enemy(window, store, *position); 
-                create_single(window, store);
+            for position in pending_enemies.iter().rev() {
+                factory::create_enemy(window, store, *position); 
+                // create_single(window, store);
             }   
         },
         Err(_) => ()

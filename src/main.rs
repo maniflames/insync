@@ -106,15 +106,17 @@ fn main() {
             Err(_) => ()
         }
 
+        //NOTE: spawn enemies on beat, cloud use some improvement
+        //small improvements can already be made by removing dependencies/comstraints imposed on this by the enemy schedueler
+        //figuering out how to pick a beat (1/4, 1/8, 1/16) would be the killer feature
         match system::audio_analysis::peak_detection(&mut audio_history) {
             None => (),
-            Some(_peak) => () //system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver)
+            Some(_peak) => system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver)
         }
 
         system::input::run(&mut window, &mut store);
         system::position::run(&mut store);
         system::collision::run(&mut window, &mut store); 
-        system::enemy_spawn::run(&mut window, &mut store, &mut enemy_scheduler, &receiver);
         system::score::run(&mut store); 
         system::health::run(&mut store);
         system::garbage_collection::run(&mut window, &mut store);
