@@ -730,6 +730,7 @@ dependencies = [
 name = "insync"
 version = "0.1.0"
 dependencies = [
+ "cgmath 0.16.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "clokwerk 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "meyda 0.1.0 (git+https://github.com/meyda/meyda-rs.git)",
  "mint 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",

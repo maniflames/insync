@@ -12,3 +12,4 @@ mint = "0.5.1"
 clokwerk = "0.1.0"
 portaudio = "0.7.0"
 meyda = { git = "https://github.com/meyda/meyda-rs.git" }
+cgmath = { version = "0.16", features = ["mint"] }

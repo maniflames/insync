@@ -61,7 +61,9 @@ fn main() {
     camera.set_position([0.0, 0.0, 10.0]);
 
     let mut store = Ecs::new();
+    factory::create_tunnel(&mut window);
     factory::create_player(&mut window, &mut store);
+    
 
     let (sender, receiver): (SyncSender<Vec<Position>>, Receiver<Vec<Position>>) = sync_channel(1);
     let mut enemy_scheduler = Scheduler::new();

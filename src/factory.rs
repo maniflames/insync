@@ -1,6 +1,6 @@
-use three; 
-use three::Object;
+use three::{Geometry, material, Object, custom::*, custom::state::*};
 use recs::Ecs;
+use cgmath::{Quaternion, Rad, prelude::*};
 use crate::*; 
 
 fn create_health(window: &mut three::Window, font: &three::Font) -> super::Health {
@@ -70,20 +70,13 @@ pub fn create_player(mut window: &mut three::Window, store: &mut Ecs) {
     let basic_pipeline = window.factory.basic_pipeline(
             "./src/shaders",
             "gradient",
-            three::custom::Primitive::TriangleList,
-            three::custom::state::Rasterizer::new_fill(),
-            three::custom::state::ColorMask::all(),
-            three::custom::state::Blend::new(three::custom::state::Equation::Add, three::custom::state::Factor::ZeroPlus(three::custom::state::BlendValue::SourceColor), three::custom::state::Factor::Zero),
-            three::custom::state::Depth{
-                fun: three::custom::state::Comparison::LessEqual, 
-                write: true
-            },
-            three::custom::state::Stencil::new(
-                three::custom::state::Comparison::Always,
-                1,
-                (three::custom::state::StencilOp::Keep, three::custom::state::StencilOp::Keep, three::custom::state::StencilOp::Keep)
-            )
-        ); 
+            Primitive::TriangleList,
+            Rasterizer::new_fill(),
+            ColorMask::all(),
+            Blend::new(Equation::Add, Factor::ZeroPlus(BlendValue::SourceColor), Factor::Zero),
+            Depth { fun: Comparison::LessEqual, write: true },
+            Stencil::new(Comparison::Always, 1, (StencilOp::Keep, StencilOp::Keep, StencilOp::Keep))
+        );
 
     
     let material = three::material::basic::Custom{
@@ -99,4 +92,21 @@ pub fn create_player(mut window: &mut three::Window, store: &mut Ecs) {
     window.scene.add(&mesh);
 
     let _ = store.set(player, GameObject{mesh: mesh, object_type: GameObjectType::Player, vertices: vertices, velocity: 0.07});
+}
+
+pub fn create_tunnel(window: &mut three::Window) {
+    let (_, meshes) = window.factory.load_obj("./src/models/tunnel/hollow_cylinder.obj");
+    let mesh = &meshes[0];
+
+    let material = material::Basic {
+        color: 0x0000FF,
+        .. Default::default()
+    };
+
+    mesh.set_material(material); 
+    let angle: f32 = 90.0;
+    mesh.set_orientation(Quaternion::from_angle_x(Rad(angle.to_radians()))); 
+    mesh.set_scale(8.0);
+    mesh.set_position([0.0, 0.0, -15.0]);
+    window.scene.add(&mesh); 
 }
